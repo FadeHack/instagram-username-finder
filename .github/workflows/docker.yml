@@ -1,0 +1,104 @@
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "requirements.txt"
+      - "pyproject.toml"
+      - "src/**"
+      - ".github/workflows/docker.yml"
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "requirements.txt"
+      - "pyproject.toml"
+      - "src/**"
+      - ".github/workflows/docker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and verify image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Images are loaded into the local daemon, never pushed. Publishing to
+      # GHCR happens only on version tags, in release.yml.
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: instagram-username-finder:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run --version
+        run: docker run --rm instagram-username-finder:ci --version
+
+      - name: Run --help
+        run: docker run --rm instagram-username-finder:ci --help
+
+      - name: Run scan --help
+        run: docker run --rm instagram-username-finder:ci scan --help
+
+      - name: Verify the container does not run as root
+        run: |
+          uid="$(docker run --rm --entrypoint id instagram-username-finder:ci -u)"
+          echo "container uid: $uid"
+          test "$uid" != "0"
+
+      - name: Verify state and results are writable in the data volume
+        run: |
+          mkdir -p "$RUNNER_TEMP/data"
+          docker run --rm -v "$RUNNER_TEMP/data:/app/data" \
+            instagram-username-finder:ci \
+            scan --help > /dev/null
+
+  scan:
+    name: Vulnerability scan
+    runs-on: ubuntu-latest
+    needs: build
+    # Advisory only: a new CVE in a base image should not block a pull request.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image for scanning
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: instagram-username-finder:scan
+
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: instagram-username-finder:scan
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Upload results to the security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif

@@ -1,0 +1,5 @@
+# Runtime dependencies. Kept intentionally small.
+# The authoritative list lives in pyproject.toml; this file exists for
+# `pip install -r requirements.txt` workflows and the Docker build.
+aiohttp>=3.9,<4
+rich>=13.7

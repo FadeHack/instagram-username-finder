@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Environments
+.venv/
+venv/
+.env
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Scan output and resume state (never commit these)
+data/*
+!data/.gitkeep
+*.state.json
+results.json
+results.csv
+results.txt
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store

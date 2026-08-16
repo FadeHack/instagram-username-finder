@@ -1,0 +1,34 @@
+# Version control and CI
+.git
+.github
+.gitignore
+
+# Local environments and caches
+.venv
+venv
+__pycache__
+*.py[cod]
+.mypy_cache
+.ruff_cache
+.pytest_cache
+.coverage
+htmlcov
+
+# Build artefacts
+dist
+build
+*.egg-info
+
+# Scan data must never be baked into an image
+data
+*.json
+!examples/*.json
+
+# Docs and local tooling not needed at runtime
+docs
+examples
+tests
+Makefile
+docker-compose.yml
+.dockerignore
+Dockerfile

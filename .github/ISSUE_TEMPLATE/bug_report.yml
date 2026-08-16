@@ -1,0 +1,95 @@
+name: Bug report
+description: Something does not work the way it is documented.
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report.
+
+        **Never include secrets.** Do not paste passwords, cookies, session IDs,
+        access tokens, or authentication headers. This project never needs them,
+        and a public issue is permanent.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong, in a sentence or two.
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 15.3 / Ubuntu 24.04 / Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: Output of `python --version`.
+      placeholder: "3.12.4"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Project version
+      description: Output of `instagram-finder --version`.
+      placeholder: "instagram-finder 0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: docker
+    attributes:
+      label: Docker version (if running in Docker)
+      description: Output of `docker --version`. Leave blank if not applicable.
+      placeholder: "Docker version 27.3.1"
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact command you ran.
+      render: shell
+      placeholder: instagram-finder scan --min-length 3 --max-length 4 --charset letters
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output from a run with `--verbose`. Redact anything sensitive.
+      render: shell
+
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have removed all credentials, cookies, tokens and session IDs from this report.
+          required: true
+        - label: I am running a supported version and have checked existing issues.
+          required: true

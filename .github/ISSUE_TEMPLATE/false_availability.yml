@@ -1,0 +1,82 @@
+name: False availability report
+description: A username reported as POSSIBLY_AVAILABLE that Instagram would not let you register.
+title: "[false-availability]: "
+labels: ["accuracy", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These reports are how the classifier gets better. Thank you.
+
+        A reminder of what the tool actually claims: `POSSIBLY_AVAILABLE` means
+        no publicly accessible profile was observed. Instagram may still
+        reserve, restrict or hold a username, so some divergence is expected
+        rather than a bug. Reports still help us find genuine classification
+        errors.
+
+        **Do not include credentials, cookies, session IDs or access tokens.**
+
+  - type: input
+    id: username
+    attributes:
+      label: Username
+      description: The username the tool reported.
+      placeholder: qzx
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Tool version
+      description: Output of `instagram-finder --version`.
+      placeholder: "instagram-finder 0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reported
+    attributes:
+      label: Reported result
+      options:
+        - possibly_available
+        - taken
+        - unknown
+        - rate_limited
+        - timeout
+        - network_error
+    validations:
+      required: true
+
+  - type: input
+    id: http_status
+    attributes:
+      label: HTTP status recorded
+      placeholder: "404"
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What Instagram actually did
+      description: >
+        What happened when you tried to register or visit it? Quote the message
+        Instagram showed, if any.
+    validations:
+      required: true
+
+  - type: input
+    id: timestamp
+    attributes:
+      label: Timestamp (UTC)
+      description: When the check ran, from the `checked_at` field if you have it.
+      placeholder: "2026-01-15T09:30:00+00:00"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Before submitting
+      options:
+        - label: This report contains no credentials, cookies, tokens or session IDs.
+          required: true

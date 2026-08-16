@@ -1,0 +1,166 @@
+name: Scheduled scan
+
+# Scheduled scanning is OFF by default. To enable it, create a repository
+# variable named ENABLE_SCHEDULED_SCAN with the value "true"
+# (Settings -> Secrets and variables -> Actions -> Variables). Removing the
+# variable, or setting it to anything else, makes every scheduled run exit
+# immediately without making a single request.
+on:
+  workflow_dispatch:
+    inputs:
+      min_length:
+        description: "Shortest username length"
+        default: "4"
+      max_length:
+        description: "Longest username length"
+        default: "4"
+      charset:
+        description: "letters | digits | letters_digits | instagram"
+        default: "letters"
+      max_checks:
+        description: "Hard cap on usernames checked in this run"
+        default: "500"
+      time_limit:
+        description: "Hard cap in seconds for this run"
+        default: "900"
+      fresh:
+        description: "Discard saved state and start over"
+        type: boolean
+        default: false
+  schedule:
+    # Once a day at 04:17 UTC. Deliberately off-peak and deliberately sparse.
+    - cron: "17 4 * * *"
+
+permissions:
+  contents: read
+
+# Two scans sharing one state file would duplicate work and double the request
+# rate, so runs are serialised and never cancelled mid-flight.
+concurrency:
+  group: scheduled-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Bounded scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      MIN_LENGTH: ${{ inputs.min_length || '4' }}
+      MAX_LENGTH: ${{ inputs.max_length || '4' }}
+      CHARSET: ${{ inputs.charset || 'letters' }}
+      MAX_CHECKS: ${{ inputs.max_checks || '500' }}
+      TIME_LIMIT: ${{ inputs.time_limit || '900' }}
+      # Conservative pacing: a scheduled scan has all the time in the world.
+      USERNAME_FINDER_CONCURRENCY: "3"
+      USERNAME_FINDER_DELAY: "1.0"
+      USERNAME_FINDER_TIMEOUT: "15"
+
+    steps:
+      - name: Check that scheduled scanning is enabled
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ vars.ENABLE_SCHEDULED_SCAN }}" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Scheduled scanning is disabled (set the ENABLE_SCHEDULED_SCAN variable to enable)."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.enabled == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.enabled == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      # State lives in the Actions cache: no commits, no external storage, and
+      # a restore key that always picks up the most recent run.
+      # See docs/github-actions.md for the trade-offs.
+      - name: Restore scan state
+        if: steps.gate.outputs.enabled == 'true' && !inputs.fresh
+        uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: scan-state-${{ env.CHARSET }}-${{ env.MIN_LENGTH }}-${{ env.MAX_LENGTH }}-${{ github.run_id }}
+          restore-keys: |
+            scan-state-${{ env.CHARSET }}-${{ env.MIN_LENGTH }}-${{ env.MAX_LENGTH }}-
+
+      - name: Run a bounded scan
+        if: steps.gate.outputs.enabled == 'true'
+        id: scan
+        # Exit code 4 means "rate limited, progress saved" - expected, not a failure.
+        run: |
+          set +e
+          instagram-finder scan \
+            --min-length "$MIN_LENGTH" \
+            --max-length "$MAX_LENGTH" \
+            --charset "$CHARSET" \
+            --max-checks "$MAX_CHECKS" \
+            --time-limit "$TIME_LIMIT" \
+            --collect-all \
+            --state-file data/state.json \
+            --output data/results.json \
+            --format json \
+            --no-progress
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 4 ]; then
+            echo "::warning::Scan stopped early because of rate limiting. Progress was saved and will resume next run."
+            exit 0
+          fi
+          exit "$code"
+
+      - name: Save scan state
+        if: steps.gate.outputs.enabled == 'true' && always()
+        uses: actions/cache/save@v4
+        with:
+          path: data
+          key: scan-state-${{ env.CHARSET }}-${{ env.MIN_LENGTH }}-${{ env.MAX_LENGTH }}-${{ github.run_id }}
+
+      - name: Upload results
+        if: steps.gate.outputs.enabled == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-results-${{ github.run_id }}
+          path: |
+            data/results.json
+            data/state.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Summary
+        if: steps.gate.outputs.enabled == 'true' && always()
+        run: |
+          {
+            echo "## Scan run"
+            echo
+            echo "- Search: ${MIN_LENGTH}-${MAX_LENGTH} characters, charset \`${CHARSET}\`"
+            echo "- Budget: ${MAX_CHECKS} checks / ${TIME_LIMIT}s"
+            echo "- Exit code: ${{ steps.scan.outputs.exit_code }}"
+            echo
+            if [ -f data/results.json ]; then
+              python - <<'PY'
+          import json, pathlib
+          data = json.loads(pathlib.Path("data/results.json").read_text())
+          summary = data["summary"]
+          print(f"- Checked: {summary['checked']:,}")
+          print(f"- Possibly available: {summary['possibly_available']:,}")
+          print(f"- Errors: {summary['errors']:,}")
+          print(f"- Stop reason: {summary['stop_reason']}")
+          print()
+          print("> " + data["disclaimer"])
+          PY
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

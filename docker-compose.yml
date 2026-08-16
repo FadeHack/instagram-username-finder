@@ -1,0 +1,24 @@
+# Optional developer convenience. Nothing here is required for normal usage:
+#   docker run --rm ghcr.io/FadeHack/instagram-username-finder scan --help
+services:
+  scanner:
+    build: .
+    image: instagram-username-finder
+    environment:
+      # Conservative defaults; see docs/configuration.md for the full list.
+      USERNAME_FINDER_CONCURRENCY: 5
+      USERNAME_FINDER_DELAY: 0.5
+      USERNAME_FINDER_TIMEOUT: 10
+      USERNAME_FINDER_STATE_FILE: /app/data/state.json
+      USERNAME_FINDER_OUTPUT: /app/data/results.json
+    volumes:
+      # Results and resume state survive container restarts.
+      - ./data:/app/data
+    command:
+      - scan
+      - --min-length=3
+      - --max-length=3
+      - --charset=letters
+      - --max-checks=100
+    # Scans are network-bound and single-process; keep the footprint small.
+    stop_grace_period: 30s

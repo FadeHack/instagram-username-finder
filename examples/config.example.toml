@@ -1,0 +1,43 @@
+# Example configuration for instagram-username-finder.
+#
+#   instagram-finder scan --config examples/config.example.toml
+#
+# Every key below can also be set as an environment variable
+# (USERNAME_FINDER_<KEY>) or as a CLI flag. Precedence, highest first:
+#
+#   CLI flag  ->  environment variable  ->  this file  ->  built-in default
+#
+# Keys may live at the top level, or inside a [scan] table.
+
+# --- search space -----------------------------------------------------------
+min_length = 3
+max_length = 4
+charset = "letters"          # letters | digits | letters_digits | instagram | custom
+# characters = "abc123"      # required when charset = "custom"
+
+# --- concurrency and pacing -------------------------------------------------
+# Defaults are deliberately conservative. Raising them increases the chance of
+# being rate limited, which will stop your scan sooner rather than later.
+concurrency = 5              # simultaneous in-flight requests
+batch_size = 100             # candidates per checkpoint
+delay = 0.5                  # minimum seconds between request starts
+timeout = 10                 # per-request timeout, seconds
+
+# --- retry and backoff ------------------------------------------------------
+max_retries = 3              # retries for timeouts, connection errors and 5xx
+retry_base_delay = 1.0
+retry_max_delay = 60.0
+circuit_breaker_threshold = 5  # consecutive 403/429 responses before stopping
+rate_limit_cooldown = 60.0     # pause length when Retry-After is absent
+
+# --- limits (useful for CI and scheduled runs) ------------------------------
+# max_checks = 5000
+# time_limit = 1800
+
+# --- output -----------------------------------------------------------------
+output = "data/results.json"
+format = "json"              # txt | json | csv
+state_file = "data/state.json"
+
+# --- behaviour --------------------------------------------------------------
+stop_on_first = true         # false is equivalent to --collect-all

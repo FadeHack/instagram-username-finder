@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest an improvement.
+title: "[feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please note the project's scope: this tool does not, and will not,
+        implement anything designed to circumvent platform restrictions -
+        proxy or IP rotation, CAPTCHA or authentication bypass, session or
+        account rotation, fingerprint spoofing, or automated account creation.
+        Requests along those lines will be closed.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve? What happens today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What should the tool do instead? A CLI sketch helps.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you weighed, and why you set them aside.
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: Concretely, how would you use this?
+    validations:
+      required: true
