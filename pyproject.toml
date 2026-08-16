@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "instagram-username-finder"
-version = "0.1.0"
+version = "0.1.1"
 description = "A responsible, open-source Instagram username availability scanner."
 readme = "README.md"
 license = "MIT"

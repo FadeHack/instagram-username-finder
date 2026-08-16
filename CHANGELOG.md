@@ -7,13 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+Nothing yet.
 
-- Declare the license as a PEP 639 SPDX expression (`license = "MIT"` with
-  `license-files`) instead of embedding the full licence text in the metadata,
-  so package indexes show a plain "MIT" rather than the whole file. The
-  now-redundant `License :: OSI Approved :: MIT License` classifier is dropped,
-  and the build backend requires `hatchling>=1.27` for PEP 639 support.
+## [0.1.1] - 2026-08-17
+
+Accuracy and correctness fixes found by running the tool against live
+Instagram for the first time.
 
 ### Added
 
@@ -21,19 +20,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hard constraints for AI coding assistants - in particular that the project
   never circumvents platform restrictions, never lets uncertainty become an
   availability claim, and never tests against live Instagram.
+- Fixtures in `tests/fixtures/` captured from real Instagram responses for both
+  an existing and a non-existent profile, so classification is tested against
+  real markup rather than invented markup.
 
 ### Changed
 
 - Require positive evidence for every classification of an HTTP 200 response.
   Instagram serves 200 for non-existent profiles too, so an unrecognised page
   now reports `unknown` instead of falling through to `possibly_available`. A
-  missing profile is detected by its generic shell - a bare `<title>Instagram</title>`
-  with no Open Graph profile metadata - and a real profile by `og:title`,
-  `og:description` or `al:ios:url`. Login-wall detection now runs first, so an
-  interstitial cannot satisfy the weaker not-found signal.
+  missing profile is detected by its generic shell - a bare
+  `<title>Instagram</title>` with no Open Graph profile metadata - and a real
+  profile by `og:title`, `og:description` or `al:ios:url`. Login-wall detection
+  now runs first, so an interstitial cannot satisfy the weaker not-found signal.
 - Drop `profilePage_` from the profile markers: it appears in the JavaScript
   bundle served for missing profiles as well, and would produce false `taken`
   results.
+- Declare the license as a PEP 639 SPDX expression (`license = "MIT"` with
+  `license-files`) instead of embedding the full licence text in the metadata,
+  so package indexes show a plain "MIT" rather than the whole file. The
+  now-redundant `License :: OSI Approved :: MIT License` classifier is dropped,
+  and the build backend requires `hatchling>=1.27` for PEP 639 support.
 
 ### Fixed
 
@@ -92,5 +99,6 @@ Initial public release.
   limiting, persistence, output, CLI and end-to-end scans. None contact
   Instagram.
 
-[Unreleased]: https://github.com/FadeHack/instagram-username-finder/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/FadeHack/instagram-username-finder/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/FadeHack/instagram-username-finder/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/FadeHack/instagram-username-finder/releases/tag/v0.1.0
