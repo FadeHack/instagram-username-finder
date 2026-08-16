@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from typing import Final, Protocol, runtime_checkable
 
@@ -25,9 +26,8 @@ logger = logging.getLogger(__name__)
 
 #: Markers that only appear on a rendered public profile.
 PROFILE_INDICATORS: Final = (
-    '"@type":"ProfilePage"',
-    "profilePage_",
     "instagram://user?username=",
+    '"@type":"ProfilePage"',
     '"profile_pic_url"',
     '"edge_followed_by"',
 )
@@ -48,6 +48,17 @@ LOGIN_WALL_INDICATORS: Final = (
     "Please wait a few minutes before you try again",
 )
 
+#: A bare ``<title>Instagram</title>``. Instagram answers a request for a
+#: non-existent profile with HTTP 200 and a generic client-rendered shell, so
+#: the *absence* of profile metadata alongside this title is the only
+#: server-side signal that no profile exists.
+GENERIC_TITLE_RE: Final = re.compile(r"<title[^>]*>\s*Instagram\s*</title>", re.IGNORECASE)
+
+#: Open Graph metadata Instagram emits only for a real profile.
+PROFILE_META_RE: Final = re.compile(
+    r'property="(?:og:title|og:description|al:ios:url)"', re.IGNORECASE
+)
+
 #: Enough body to classify; profile markers appear early in the document.
 MAX_BODY_BYTES: Final = 262_144
 
@@ -65,15 +76,25 @@ class UsernameChecker(Protocol):
 
 
 def classify_body(body: str) -> CheckStatus:
-    """Classify the body of an HTTP 200 profile response."""
-    if any(marker in body for marker in NOT_FOUND_INDICATORS):
-        return CheckStatus.POSSIBLY_AVAILABLE
+    """Classify the body of an HTTP 200 profile response.
+
+    Every verdict needs positive evidence. An unrecognised page resolves to
+    ``UNKNOWN`` rather than being assumed available: Instagram serves HTTP 200
+    for both real and non-existent profiles, so "nothing matched" is a
+    statement about our markers, not about the username.
+    """
+    # Checked first: a login or checkpoint interstitial describes our session,
+    # and can otherwise satisfy the weaker not-found signal below.
+    if any(marker in body for marker in LOGIN_WALL_INDICATORS):
+        return CheckStatus.UNKNOWN
     if any(marker in body for marker in PROFILE_INDICATORS):
         return CheckStatus.TAKEN
-    if any(marker in body for marker in LOGIN_WALL_INDICATORS):
-        # A login wall tells us nothing about the username itself.
-        return CheckStatus.UNKNOWN
-    return CheckStatus.POSSIBLY_AVAILABLE
+    if any(marker in body for marker in NOT_FOUND_INDICATORS):
+        return CheckStatus.POSSIBLY_AVAILABLE
+    # The generic shell: a bare "Instagram" title and no profile metadata.
+    if GENERIC_TITLE_RE.search(body) and not PROFILE_META_RE.search(body):
+        return CheckStatus.POSSIBLY_AVAILABLE
+    return CheckStatus.UNKNOWN
 
 
 def classify_response(status: int, body: str | None = None) -> CheckStatus:

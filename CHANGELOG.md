@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now-redundant `License :: OSI Approved :: MIT License` classifier is dropped,
   and the build backend requires `hatchling>=1.27` for PEP 639 support.
 
+### Changed
+
+- Require positive evidence for every classification of an HTTP 200 response.
+  Instagram serves 200 for non-existent profiles too, so an unrecognised page
+  now reports `unknown` instead of falling through to `possibly_available`. A
+  missing profile is detected by its generic shell - a bare `<title>Instagram</title>`
+  with no Open Graph profile metadata - and a real profile by `og:title`,
+  `og:description` or `al:ios:url`. Login-wall detection now runs first, so an
+  interstitial cannot satisfy the weaker not-found signal.
+- Drop `profilePage_` from the profile markers: it appears in the JavaScript
+  bundle served for missing profiles as well, and would produce false `taken`
+  results.
+
 ### Fixed
 
 - Evaluate scan stop conditions per username checked rather than only at batch

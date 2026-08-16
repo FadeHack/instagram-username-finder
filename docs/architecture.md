@@ -113,9 +113,12 @@ Generator → Batch (batch_size) → Bounded queue → N workers → Results →
   has been resolved, so `current_index = last.index + 1` is always safe to
   restart from. Out-of-order completion inside a batch cannot create a gap.
 
-After each batch the scanner evaluates stop conditions in order: an explicit
-stop request, an open circuit breaker, `--stop-on-first` satisfied, `--max-checks`
-reached, `--time-limit` elapsed.
+Stop conditions are evaluated **before each candidate is dispatched**, in order:
+an explicit stop request, an open circuit breaker, `--stop-on-first` satisfied,
+`--max-checks` reached, `--time-limit` elapsed. Checking only at batch
+boundaries is not sufficient — a throttled scan pauses for an escalating
+cooldown before every request, which can stretch one batch across hours and
+leave an open circuit breaker unenforced for all of it.
 
 Lengths run shortest-first, and a completed length is recorded so a resumed scan
 never repeats it.
@@ -134,10 +137,11 @@ connections are pooled and TLS handshakes are not repeated per username.
 200
  ↓
 inspect body
- ├── "not available" markers   → POSSIBLY_AVAILABLE
- ├── profile markers           → TAKEN
- ├── login/checkpoint markers  → UNKNOWN
- └── nothing recognisable      → POSSIBLY_AVAILABLE
+ ├── login/checkpoint markers          → UNKNOWN
+ ├── profile markers                   → TAKEN
+ ├── "not available" markers           → POSSIBLY_AVAILABLE
+ ├── generic shell, no profile metadata → POSSIBLY_AVAILABLE
+ └── nothing recognisable              → UNKNOWN
 
 404 → POSSIBLY_AVAILABLE
 429 → RATE_LIMITED
@@ -148,12 +152,22 @@ connection error → retry, then NETWORK_ERROR
 anything else → UNKNOWN
 ```
 
-Two rules are absolute:
+Three rules are absolute:
 
 1. **A network error is never availability.** Timeouts and connection failures
    have their own statuses and are excluded from candidates.
 2. **A login wall is never availability.** It describes our session, not the
    username, so it resolves to `UNKNOWN`.
+3. **An unrecognised page is never availability.** Instagram answers HTTP 200
+   for both real and non-existent profiles, so "no markers matched" says
+   something about the classifier, not about the username.
+
+The last rule matters more than it looks. A request for a profile that does not
+exist returns **HTTP 200**, not 404, with a generic client-rendered shell: a
+bare `<title>Instagram</title>` and no Open Graph metadata. A real profile
+carries `og:title`, `og:description` and `al:ios:url`. That presence-versus-
+absence pair is the actual signal, and both fixtures in `tests/fixtures/` are
+trimmed captures of real responses.
 
 `classify_response()` is a pure function, which is why the status table above can
 be tested exhaustively without a socket.

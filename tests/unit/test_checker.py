@@ -10,6 +10,7 @@ import asyncio
 import socket
 from collections import defaultdict, deque
 from collections.abc import AsyncIterator, Iterator
+from pathlib import Path
 
 import aiohttp
 import pytest
@@ -24,7 +25,12 @@ from instagram_username_finder.models import CheckStatus
 from instagram_username_finder.rate_limiter import RateLimiter
 from instagram_username_finder.retry import RetryPolicy
 
-PROFILE_HTML = '<html><script>{"@type":"ProfilePage","edge_followed_by":1}</script></html>'
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+
+#: Captured from real instagram.com responses; see the fixture headers.
+PROFILE_HTML = (FIXTURES / "profile_taken.html").read_text(encoding="utf-8")
+GENERIC_SHELL_HTML = (FIXTURES / "profile_not_found.html").read_text(encoding="utf-8")
+
 NOT_FOUND_HTML = "<html><body>Sorry, this page isn't available.</body></html>"
 LOGIN_HTML = '<html><form id="loginForm"></form></html>'
 
@@ -131,11 +137,39 @@ def make_checker(
 
 
 class TestClassifier:
-    def test_profile_markers_mean_taken(self) -> None:
+    def test_real_profile_page_is_taken(self) -> None:
         assert classify_response(200, PROFILE_HTML) is CheckStatus.TAKEN
+
+    def test_real_generic_shell_is_possibly_available(self) -> None:
+        # Instagram answers HTTP 200 for a non-existent profile with a bare
+        # shell: generic <title> and no Open Graph profile metadata.
+        assert classify_response(200, GENERIC_SHELL_HTML) is CheckStatus.POSSIBLY_AVAILABLE
 
     def test_not_found_body_means_possibly_available(self) -> None:
         assert classify_response(200, NOT_FOUND_HTML) is CheckStatus.POSSIBLY_AVAILABLE
+
+    def test_unrecognised_page_is_unknown_not_available(self) -> None:
+        # The critical rule: no matching markers is a statement about our
+        # classifier, not about the username. Never assume availability.
+        assert classify_response(200, "<html><body>something new</body></html>") is (
+            CheckStatus.UNKNOWN
+        )
+
+    def test_generic_title_with_profile_metadata_is_not_available(self) -> None:
+        # A page carrying og:title describes a real profile, so the generic
+        # title alone must not be enough to call it free.
+        body = (
+            "<html><head><title>Instagram</title>"
+            '<meta property="og:title" content="X (@x)" /></head></html>'
+        )
+        assert classify_response(200, body) is not CheckStatus.POSSIBLY_AVAILABLE
+
+    def test_shared_javascript_bundle_names_are_not_markers(self) -> None:
+        # "PolarisProfile" appears in the JS bundle of both real and missing
+        # profiles, so it must never be treated as evidence of a profile.
+        assert "PolarisProfile" in PROFILE_HTML
+        assert "PolarisProfile" in GENERIC_SHELL_HTML
+        assert classify_response(200, GENERIC_SHELL_HTML) is CheckStatus.POSSIBLY_AVAILABLE
 
     def test_login_wall_is_unknown_not_available(self) -> None:
         assert classify_response(200, LOGIN_HTML) is CheckStatus.UNKNOWN
@@ -179,13 +213,22 @@ class TestRequests:
         assert result.status is CheckStatus.POSSIBLY_AVAILABLE
         assert result.is_candidate
 
-    async def test_200_without_profile_markers_is_not_taken(
+    async def test_200_generic_shell_is_possibly_available(
         self, session: aiohttp.ClientSession, instagram: tuple[FakeInstagram, str]
     ) -> None:
         fake, base_url = instagram
-        fake.queue("empty", Reply(200, NOT_FOUND_HTML))
+        fake.queue("empty", Reply(200, GENERIC_SHELL_HTML))
         result = await make_checker(session, base_url).check("empty")
         assert result.status is CheckStatus.POSSIBLY_AVAILABLE
+
+    async def test_200_unrecognised_markup_is_unknown(
+        self, session: aiohttp.ClientSession, instagram: tuple[FakeInstagram, str]
+    ) -> None:
+        fake, base_url = instagram
+        fake.queue("weird", Reply(200, "<html><body>redesign</body></html>"))
+        result = await make_checker(session, base_url).check("weird")
+        assert result.status is CheckStatus.UNKNOWN
+        assert not result.is_candidate
 
     async def test_login_wall_response_is_unknown(
         self, session: aiohttp.ClientSession, instagram: tuple[FakeInstagram, str]

@@ -394,18 +394,21 @@ See [docs/architecture.md](docs/architecture.md) for the full walkthrough.
 
 Concretely:
 
-- **HTTP status alone is insufficient.** A 404 says a public profile was not
-  served. It does not say the name is registrable. Deleted, deactivated,
-  suspended, reserved and trademark-held usernames can all look identical from
-  the outside.
+- **HTTP status alone is insufficient.** Instagram answers **HTTP 200 for both
+  real and non-existent profiles**, so classification depends on inspecting the
+  page, not the status code. And even a confirmed absence does not mean the name
+  is registrable: deleted, deactivated, suspended, reserved and trademark-held
+  usernames all look identical from the outside.
 - **Rate limits interrupt scans.** Instagram throttles unauthenticated traffic.
   The tool backs off, saves progress and stops; it does not push through.
 - **Network errors create uncertainty.** Timeouts and connection failures are
   reported as `timeout` / `network_error` and are never counted as available.
 - **Login walls are ambiguous.** A response that looks like a login interstitial
   is classified `unknown`, because it describes our session, not the username.
-- **Classification depends on page markup.** Instagram changes its HTML; the
-  classifier may need updating. Please file a
+- **Classification depends on page markup.** The classifier keys on Open Graph
+  metadata that Instagram emits only for real profiles. Instagram changes its
+  HTML, so this may need updating; when it does, unrecognised pages report
+  `unknown` rather than silently becoming false candidates. Please file a
   [false availability report](.github/ISSUE_TEMPLATE/false_availability.yml) if
   you find a mismatch.
 - **The tool intentionally does not bypass platform restrictions**, so it is
