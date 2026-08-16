@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- Declare the license as a PEP 639 SPDX expression (`license = "MIT"` with
+  `license-files`) instead of embedding the full licence text in the metadata,
+  so package indexes show a plain "MIT" rather than the whole file. The
+  now-redundant `License :: OSI Approved :: MIT License` classifier is dropped,
+  and the build backend requires `hatchling>=1.27` for PEP 639 support.
+
+### Fixed
+
+- Pin `aquasecurity/trivy-action` to `v0.36.0`. The tags carry a `v` prefix, so
+  the previous reference did not resolve and the vulnerability scan job failed
+  during action setup.
 
 ## [0.1.0] - 2026-08-17
 
