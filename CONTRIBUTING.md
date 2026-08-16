@@ -3,6 +3,10 @@
 Thanks for considering a contribution. This project aims to be small, readable
 and dependable, and to stay well-behaved toward a service it does not own.
 
+If you are using an AI coding assistant, point it at
+[AGENTS.md](AGENTS.md) — it states the same rules in the form agents need,
+including the constraints that are easiest to violate by accident.
+
 ## Scope
 
 Before opening a pull request, note what this project will not accept:

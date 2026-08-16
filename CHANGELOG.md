@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now-redundant `License :: OSI Approved :: MIT License` classifier is dropped,
   and the build backend requires `hatchling>=1.27` for PEP 639 support.
 
+### Added
+
+- `AGENTS.md`, documenting the build commands, architectural boundaries and
+  hard constraints for AI coding assistants - in particular that the project
+  never circumvents platform restrictions, never lets uncertainty become an
+  availability claim, and never tests against live Instagram.
+
 ### Changed
 
 - Require positive evidence for every classification of an HTTP 200 response.
