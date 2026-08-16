@@ -98,6 +98,15 @@ Exit
 
 Four independent bounds keep a run finite: `--max-checks`, `--time-limit`, the
 job's `timeout-minutes: 30`, and the circuit breaker. Nothing runs indefinitely.
+All of them are evaluated per username checked, not merely between batches, so
+a paused rate limiter cannot stretch a run past its budget.
+
+> **Hosted runners are usually throttled.** GitHub's runner IPs are shared with
+> thousands of projects, and Instagram commonly returns `429` to them from the
+> very first request. A scheduled scan from CI will often do nothing but back
+> off and exit with code 4. The circuit-breaker threshold is lowered to 3 in
+> this workflow so that happens quickly. If you want results rather than a
+> demonstration of good manners, scan from your own machine.
 
 Pacing is also more conservative than the local defaults — `concurrency 3`,
 `delay 1.0` — because a scheduled scan has no deadline.

@@ -171,6 +171,70 @@ class TestFullScan:
         assert peak <= 2
 
 
+class TestStopsMidBatch:
+    """Stop conditions must not wait for a batch boundary.
+
+    A paused rate limiter can stretch one batch across hours, so a scan that
+    only re-checks its stop conditions between batches would keep issuing
+    requests long after it decided to stop. Each test here uses a batch large
+    enough to cover the whole search space, so a batch-boundary-only check
+    would let the run continue to the end.
+    """
+
+    async def test_open_circuit_breaker_stops_within_the_batch(
+        self, tmp_path: Path
+    ) -> None:
+        limiter = RateLimiter(concurrency=1, delay=0.0, cooldown=0.0, circuit_threshold=2)
+
+        def throttled(username: str) -> CheckResult:
+            limiter.record_rate_limited(retry_after=0.0)
+            return CheckResult(username, CheckStatus.RATE_LIMITED, http_status=429)
+
+        checker = FakeChecker(throttled)
+        config = scan_config(tmp_path, batch_size=9, concurrency=1)
+        report = await build_scanner(config, checker, limiter=limiter).run()
+
+        # Two throttled responses open the breaker; nothing after it is sent.
+        assert limiter.circuit_open
+        assert len(checker.calls) == 2
+        assert report.stop_reason is StopReason.RATE_LIMITED
+
+    async def test_max_checks_stops_within_the_batch(self, tmp_path: Path) -> None:
+        checker = FakeChecker(taken)
+        config = scan_config(tmp_path, max_checks=2, batch_size=9, concurrency=1)
+        report = await build_scanner(config, checker).run()
+
+        assert len(checker.calls) == 2
+        assert report.stats.checked == 2
+        assert report.stop_reason is StopReason.MAX_CHECKS
+
+    async def test_time_limit_stops_within_the_batch(self, tmp_path: Path) -> None:
+        async def slow(username: str) -> CheckResult:
+            await asyncio.sleep(0.02)
+            return taken(username)
+
+        class SlowChecker(FakeChecker):
+            async def check(self, username: str) -> CheckResult:
+                self.calls.append(username)
+                return await slow(username)
+
+        checker = SlowChecker(taken)
+        config = scan_config(tmp_path, time_limit=0.01, batch_size=9, concurrency=1)
+        report = await build_scanner(config, checker).run()
+
+        assert len(checker.calls) < 9
+        assert report.stop_reason is StopReason.TIME_LIMIT
+
+    async def test_stop_on_first_stops_within_the_batch(self, tmp_path: Path) -> None:
+        checker = FakeChecker(only_available("ab"))
+        config = scan_config(tmp_path, stop_on_first=True, batch_size=9, concurrency=1)
+        report = await build_scanner(config, checker).run()
+
+        # "aa", "ab" -> candidate found; "ac" onwards is never requested.
+        assert checker.calls == ["aa", "ab"]
+        assert report.stop_reason is StopReason.FOUND
+
+
 class TestLimits:
     async def test_max_checks_bounds_the_run(self, tmp_path: Path) -> None:
         checker = FakeChecker(taken)

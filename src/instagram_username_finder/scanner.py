@@ -200,7 +200,12 @@ class Scanner:
             candidate = await queue.get()
             if candidate is None:
                 return
-            if self._stop_event.is_set():
+            # Stop conditions are evaluated per candidate, not merely at batch
+            # boundaries. A paused limiter can stretch a single batch across
+            # hours, so a batch-boundary check would let an open circuit
+            # breaker, a time limit or a check budget go unenforced for the
+            # whole of it.
+            if self._stop_event.is_set() or self._should_stop():
                 continue  # drain remaining items without issuing requests
 
             self._stats.current_username = candidate.username

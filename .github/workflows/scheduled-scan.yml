@@ -56,6 +56,10 @@ jobs:
       USERNAME_FINDER_CONCURRENCY: "3"
       USERNAME_FINDER_DELAY: "1.0"
       USERNAME_FINDER_TIMEOUT: "15"
+      # Hosted runner IPs are shared and frequently throttled by Instagram.
+      # Give up after three consecutive 403/429 responses rather than spending
+      # the run's whole budget waiting out escalating cooldowns.
+      USERNAME_FINDER_CIRCUIT_BREAKER_THRESHOLD: "3"
 
     steps:
       - name: Check that scheduled scanning is enabled

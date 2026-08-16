@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Evaluate scan stop conditions per username checked rather than only at batch
+  boundaries. A paused rate limiter can stretch a single batch across hours, so
+  an open circuit breaker, `--time-limit` or `--max-checks` could go unenforced
+  for the whole of it and the scan would keep issuing requests long after it had
+  decided to stop.
+- Lower the circuit-breaker threshold to 3 in the scheduled-scan workflow, so a
+  run from a throttled hosted runner backs off and exits promptly instead of
+  spending its budget waiting out escalating cooldowns.
 - Pin `aquasecurity/trivy-action` to `v0.36.0`. The tags carry a `v` prefix, so
   the previous reference did not resolve and the vulnerability scan job failed
   during action setup.
