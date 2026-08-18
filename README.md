@@ -8,6 +8,16 @@
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/FadeHack/instagram-username-finder/main/docs/assets/dashboard.png"
+       alt="Terminal dashboard showing a scan in progress: 121 of 11,881,376 five-character usernames checked, 103 taken, 18 candidates, 0 errors"
+       width="800">
+</p>
+
+<p align="center">
+  <em>A real run: 121 usernames checked in three minutes, 103 taken, 18 with no profile behind them.</em>
+</p>
+
 ---
 
 ## Overview
